@@ -1,17 +1,35 @@
+import sys
 import itertools
 import heapq
 import random
-import __builtin__
 
-identity = lambda value: value
-map = itertools.imap
-zip = itertools.izip
+if sys.version_info < (3, 0):
+    import __builtin__
+    map = itertools.imap
+    zip = itertools.izip
+    filter = itertools.ifilter
+    range = __builtin__.xrange
+else:
+    map = map
+    zip = zip
+    filter = filter
+    range = range
+
+from semigroups import DefaultSemigroupKs
+
 slice = itertools.islice
-filter = itertools.ifilter
+identity = lambda value: value
+slice = itertools.islice
 chain = itertools.chain
 product = itertools.product
 run_group_by = itertools.groupby
-range = __builtin__.xrange
+
+
+def bag(lst):
+    result = {}
+    for x in lst:
+        result[x] = result.setdefault(x, 0) + 1
+    return result
 
 
 def take(iterable, n):
@@ -47,7 +65,7 @@ def peek(iterable, n=1):
     elements = []
     try:
         for i in range(n):
-            elements.append(iterable.next())
+            elements.append(next(iterable))
     except:
         return elements[:], iter(elements)
     else:
@@ -83,21 +101,25 @@ def filter_by_min_freq(iterable, n, key=None):
     return result
 
 
-def group_by(iterable, key, monoid=None):
+def groupby(iterable, key=None, map=None, semigroup='list'):
     """
-    >>> group_by(['abc', 'acd', 'dsa', 'dw', 'd', 'k'], lambda w: w[0])
     ... # doctest: +NORMALIZE_WHITESPACE
-    {'a': ['abc', 'acd'], 'k': ['k'], 'd': ['dsa', 'dw', 'd']}
+    >>> d = groupby(['abc', 'acd', 'dsa', 'dw', 'd', 'k'],
+    ...             key=lambda w: w[0]).items()
+    >>> sorted(d)
+    [('a', ['abc', 'acd']), ('d', ['dsa', 'dw', 'd']), ('k', ['k'])]
     """
-
-    if monoid is None:
-        monoid = (list, lambda l, x: l.append(x))
-    zero, add = monoid
+    key = identity if key is None else key
+    map = identity if map is None else map
+    sgk = DefaultSemigroupKs.get(semigroup, semigroup)
 
     result = {}
-    iterable = iter(iterable)
     for v in iterable:
-        add(result.setdefault(key(v), zero()), v)
+        k = key(v)
+        if k in result:
+            result[k] = sgk.iappend(result[k], map(v))
+        else:
+            result[k] = sgk.unit(map(v))
     return result
 
 
@@ -169,7 +191,7 @@ def throttle_threads(iterable, thread_key=None, time_key=None, delay=0):
             yield v
 
 
-def merge_many(key=None, *iterables):
+def merge_many(*args, **kwargs):
     """Merge multiple sorted inputs into a single sorted output.
 
     Equivalent to:  sorted(itertools.chain(*iterables))
@@ -178,19 +200,20 @@ def merge_many(key=None, *iterables):
     [0, 1, 2, 3, 4, 5, 5, 7, 8, 10, 15, 20, 25]
 
     """
-
-    key = identity if key is None else key
+    key = kwargs.get('key', identity)
     heappop, siftup, _StopIteration = \
         heapq.heappop, heapq._siftup, StopIteration
 
+    its = []
     h = []
     h_append = h.append
-    for it in map(iter, iterables):
+    for it in map(iter, args):
         try:
-            next = it.next
-            v = next()
+            v = next(it)
             k = key(v)
-            h_append([k, v, next])
+            n = len(its)
+            its.append([v, it])
+            h_append([k, n])
         except _StopIteration:
             pass
     heapq.heapify(h)
@@ -198,13 +221,19 @@ def merge_many(key=None, *iterables):
     while 1:
         try:
             while 1:
-                k, v, next = s = h[0]   # raises IndexError when h is empty
+                # raises IndexError when h is empty
+                k, n = h[0]
+                v, it = its[n]
                 yield v
-                s[1] = next()           # raises StopIteration when exhausted
-                s[0] = key(s[1])
-                siftup(h, 0)            # restore heap condition
+                # raises StopIteration when exhausted
+                v = next(it)
+                its[n][0] = v
+                h[0][0] = key(v)
+                # restore heap condition
+                siftup(h, 0)
         except _StopIteration:
-            heappop(h)                  # remove empty iterator
+            # remove empty iterator
+            heappop(h)
         except IndexError:
             return
 
@@ -260,7 +289,7 @@ def windowdiffs(sorted_iterable, key_func,
     # If window_start is not specified, assume that
     # we start with the first item.
     if window_start is None:
-        new_values.append(values.next())
+        new_values.append(next(values))
         window_start = key_func(new_values[0])
         new_keys.append(window_start)
 
