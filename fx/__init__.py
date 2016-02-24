@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import sys
 import itertools
 import heapq
@@ -15,7 +17,7 @@ else:
     filter = filter
     range = range
 
-from semigroups import DefaultSemigroupKs
+from .semigroups import DefaultSemigroupKs
 
 slice = itertools.islice
 identity = lambda value: value
