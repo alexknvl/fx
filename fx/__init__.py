@@ -19,12 +19,25 @@ else:
 
 from .semigroups import DefaultSemigroupKs
 
+_SENTINEL = object()
+
 slice = itertools.islice
 identity = lambda value: value
 slice = itertools.islice
 chain = itertools.chain
 product = itertools.product
 run_group_by = itertools.groupby
+
+
+def uniq(iterable, key=None):
+    key = identity if key is None else key
+
+    last_key = _SENTINEL
+    for v in iterable:
+        k = key(v)
+        if k != last_key:
+            yield v
+            last_key = k
 
 
 def bag(lst):
@@ -164,6 +177,14 @@ def hash_sample(iterable, key=None, rate=1):
         k = key(v)
         if hash(k) % rate == 0:
             yield v
+
+
+def sample(iterable, key=None, rate=1):
+    n = 0
+    for v in iterable:
+        if n % rate == 0:
+            yield v
+        n += 1
 
 
 def throttle(iterable, key=None, delay=0):
