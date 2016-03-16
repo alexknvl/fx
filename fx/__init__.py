@@ -29,6 +29,37 @@ product = itertools.product
 run_group_by = itertools.groupby
 
 
+def sliding(iterable, length, step=1):
+    """
+    >>> list(sliding([1, 2, 3], 2))
+    [[1, 2], [2, 3]]
+    >>> list(sliding([1], 2))
+    [[1]]
+    >>> list(sliding([], 2))
+    []
+    >>> list(sliding([1, 2, 3], 2, 2))
+    [[1, 2], [3]]
+    """
+    assert length > 0
+    assert step > 0
+    assert step <= length
+
+    result = []
+    yielded = True
+
+    for v in iterable:
+        result.append(v)
+        if len(result) == length:
+            yield result[:]
+            del result[:step]
+            yielded = True
+        else:
+            yielded = False
+
+    if not yielded:
+        yield result[:]
+
+
 def uniq(iterable, key=None):
     key = identity if key is None else key
 
