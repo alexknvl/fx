@@ -31,18 +31,20 @@ run_group_by = itertools.groupby
 
 def remap(iterable, predicate):
     """
-    >>> remap([3, 2, 3], lambda x: x > 0)
+    >>> remap([3, 2, 3], lambda i, x: x > 0)
     ([3, 2, 3], [0, 1, 2])
-    >>> remap([3, 2, 3], lambda x: x < 0)
+    >>> remap([3, 2, 3], lambda i, x: x < 0)
     ([], [-1, -1, -1])
-    >>> remap([3, 2, 3], lambda x: x > 2)
+    >>> remap([3, 2, 3], lambda i, x: x > 2)
     ([3, 3], [0, -1, 1])
+    >>> remap([3, 3, 3], lambda i, x: x > i + 1)
+    ([3, 3], [0, 1, -1])
     """
     remapping = []
     result = []
     j = 0
     for i, v in enumerate(iterable):
-        if predicate(v):
+        if predicate(i, v):
             result.append(v)
             remapping.append(j)
             j += 1
