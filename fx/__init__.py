@@ -29,6 +29,28 @@ product = itertools.product
 run_group_by = itertools.groupby
 
 
+def remap(iterable, predicate):
+    """
+    >>> remap([3, 2, 3], lambda x: x > 0)
+    ([3, 2, 3], [0, 1, 2])
+    >>> remap([3, 2, 3], lambda x: x < 0)
+    ([], [-1, -1, -1])
+    >>> remap([3, 2, 3], lambda x: x > 2)
+    ([3, 3], [0, -1, 1])
+    """
+    remapping = []
+    result = []
+    j = 0
+    for i, v in enumerate(iterable):
+        if predicate(v):
+            result.append(v)
+            remapping.append(j)
+            j += 1
+        else:
+            remapping.append(-1)
+    return (result, remapping)
+
+
 def sliding(iterable, length, step=1):
     """
     >>> list(sliding([1, 2, 3], 2))
