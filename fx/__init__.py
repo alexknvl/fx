@@ -128,7 +128,7 @@ def join(iterable):
 
 def peek(iterable, n=1):
     if n <= 0:
-        return iterable
+        return [], iterable
 
     iterable = iter(iterable)
 
@@ -320,13 +320,19 @@ def reservoir_sample(iterable, n, rng=None):
     sample = []
 
     if rng is None:
-        rng = random
+        rand = random.random
+        # python's randint is inclusive
+        randint = lambda x: random.randint(0, x)
+    else:
+        rand = rng.rand
+        # numpy's randint is exclusive on the higher bound
+        randint = lambda x: rng.randint(0, x + 1)
 
     for i, v in enumerate(iterable):
         if i < n:
             sample.append(v)
-        elif i >= n and rng.random() < n / float(i+1):
-            replace = rng.randint(0, len(sample) - 1)
+        elif i >= n and rand() < n / float(i+1):
+            replace = randint(len(sample) - 1)
             sample[replace] = v
     return sample
 
