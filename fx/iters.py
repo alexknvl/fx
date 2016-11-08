@@ -110,6 +110,14 @@ def uniq(iterable, key=None, adjacent=True):
             yield v
 
 
+def iterate(f, x):
+    """
+    Return an iterator yielding x, f(x), f(f(x)) etc.
+    """
+    while True:
+        yield x
+        x = f(x)
+
 
 def remap(iterable, predicate):
     """
