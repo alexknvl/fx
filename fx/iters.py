@@ -12,19 +12,25 @@ else:
     from itertools import zip_longest
     from functools import reduce
 
+from itertools import islice, tee, chain, product
+from itertools import groupby as rungroupby
+
 map = map
 zip = zip
 filter = filter
 range = range
 reduce = reduce
+islice = islice
+tee = tee
+chain = chain
+product = product
+rungroupby = rungroupby
 
 import heapq
 import random
 
 from collections import deque
 from operator import add, attrgetter, itemgetter
-from itertools import islice, tee, chain, product
-from itertools import groupby as rungroupby
 
 from .semigroups import DefaultSemigroupKs
 
