@@ -86,26 +86,29 @@ def nth(iterable, n, default=None):
 
 
 def uniq(iterable, key=None, adjacent=True):
+    """
+    Similar to unix uniq command, selects unique elements from an iterator.
+    """
+
     key = identity if key is None else key
 
-    last_key = _SENTINEL
-    for v in iterable:
-        k = key(v)
-        if k != last_key:
-            yield v
+    if adjacent:
+        last_key = _SENTINEL
+        for v in iterable:
+            k = key(v)
+            if k == last_key:
+                continue
             last_key = k
-
-
-def skip_duplicates(iterable, key=None):
-    iterable = iter(iterable)
-    key = identity if key is None else key
-
-    seen = set([])
-    for v in iterable:
-        k = key(v)
-        if k not in seen:
+            yield v
+    else:
+        seen = set()
+        for v in iterable:
+            k = key(v)
+            if k in seen:
+                continue
             seen.add(k)
             yield v
+
 
 
 def remap(iterable, predicate):
