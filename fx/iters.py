@@ -5,6 +5,11 @@ import itertools
 import heapq
 import random
 
+from operator import add, attrgetter, itemgetter
+from collections import deque
+
+from .semigroups import DefaultSemigroupKs
+
 if sys.version_info < (3, 0):
     import __builtin__
     map = itertools.imap
@@ -17,16 +22,90 @@ else:
     filter = filter
     range = range
 
-from .semigroups import DefaultSemigroupKs
-
-_SENTINEL = object()
-
-slice = itertools.islice
 identity = lambda value: value
-slice = itertools.islice
+
+tee = itertools.tee
+islice = itertools.islice
 chain = itertools.chain
 product = itertools.product
 run_group_by = itertools.groupby
+
+_SENTINEL = object()
+
+
+def take(limit, base):
+    """
+    >>> list(take(2, [1, 2, 3, 4]))
+    [1, 2]
+    >>> list(take(2, [1]))
+    [1]
+    """
+    return itertools.islice(base, limit)
+
+
+def drop(limit, base):
+    """
+    >>> list(drop(2, [1, 2, 3, 4]))
+    [3, 4]
+    >>> list(drop(2, [1]))
+    []
+    """
+    return islice(base, limit, None)
+
+
+def takelast(limit, base):
+    """
+    Return iterator to produce last n items from origin.
+
+    >>> list(takelast(2, [1, 2, 3, 4]))
+    [3, 4]
+    >>> list(takelast(2, [1]))
+    [1]
+    """
+    return iter(deque(base, maxlen=limit))
+
+
+def droplast(limit, base):
+    """
+    Return iterator to produce items from origin except last n
+
+    >>> list(droplast(2, [1, 2, 3, 4]))
+    [1, 2]
+    >>> list(droplast(2, [1]))
+    []
+    """
+    t1, t2 = tee(base)
+    return map(itemgetter(0), zip(t1, islice(t2, limit, None)))
+
+
+def nth(iterable, n, default=None):
+    """Returns the nth item or a default value
+    http://docs.python.org/3.4/library/itertools.html#itertools-recipes
+    """
+    return next(islice(iterable, n, None), default)
+
+
+def uniq(iterable, key=None, adjacent=True):
+    key = identity if key is None else key
+
+    last_key = _SENTINEL
+    for v in iterable:
+        k = key(v)
+        if k != last_key:
+            yield v
+            last_key = k
+
+
+def skip_duplicates(iterable, key=None):
+    iterable = iter(iterable)
+    key = identity if key is None else key
+
+    seen = set([])
+    for v in iterable:
+        k = key(v)
+        if k not in seen:
+            seen.add(k)
+            yield v
 
 
 def remap(iterable, predicate):
@@ -84,26 +163,11 @@ def sliding(iterable, length, step=1):
         yield result[:]
 
 
-def uniq(iterable, key=None):
-    key = identity if key is None else key
-
-    last_key = _SENTINEL
-    for v in iterable:
-        k = key(v)
-        if k != last_key:
-            yield v
-            last_key = k
-
-
 def bag(lst):
     result = {}
     for x in lst:
         result[x] = result.setdefault(x, 0) + 1
     return result
-
-
-def take(iterable, n):
-    return itertools.islice(iterable, n)
 
 
 def takewhile(iterable, predicate):
@@ -210,18 +274,6 @@ def max_by(iterable, key):
             result_key = k
             result = v
     return result
-
-
-def skip_duplicates(iterable, key=None):
-    iterable = iter(iterable)
-    key = identity if key is None else key
-
-    seen = set([])
-    for v in iterable:
-        k = key(v)
-        if k not in seen:
-            seen.add(k)
-            yield v
 
 
 def hash_sample(iterable, key=None, rate=1):
