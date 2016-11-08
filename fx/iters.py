@@ -1,36 +1,34 @@
 from __future__ import absolute_import
 
-import sys
-import itertools
+from sys import version_info
+
+if version_info[0] == 2:
+    from itertools import izip as zip, imap as map, ifilter as filter
+    from itertools import ifilterfalse as filterfalse
+    from itertools import izip_longest as zip_longest
+    from __builtin__ import xrange as range
+else:
+    from itertools import filterfalse
+    from itertools import zip_longest
+    from functools import reduce
+
+map = map
+zip = zip
+filter = filter
+range = range
+reduce = reduce
+
 import heapq
 import random
 
-from operator import add, attrgetter, itemgetter
 from collections import deque
+from operator import add, attrgetter, itemgetter
+from itertools import islice, tee, chain, product
+from itertools import groupby as rungroupby
 
 from .semigroups import DefaultSemigroupKs
 
-if sys.version_info < (3, 0):
-    import __builtin__
-    map = itertools.imap
-    zip = itertools.izip
-    filter = itertools.ifilter
-    range = __builtin__.xrange
-else:
-    map = map
-    zip = zip
-    filter = filter
-    range = range
-
 identity = lambda value: value
-
-tee = itertools.tee
-islice = itertools.islice
-chain = itertools.chain
-product = itertools.product
-run_group_by = itertools.groupby
-
-_SENTINEL = object()
 
 
 def take(limit, base):
@@ -40,7 +38,7 @@ def take(limit, base):
     >>> list(take(2, [1]))
     [1]
     """
-    return itertools.islice(base, limit)
+    return islice(base, limit)
 
 
 def drop(limit, base):
@@ -93,7 +91,7 @@ def uniq(iterable, key=None, adjacent=True):
     key = identity if key is None else key
 
     if adjacent:
-        last_key = _SENTINEL
+        last_key = object()
         for v in iterable:
             k = key(v)
             if k == last_key:
