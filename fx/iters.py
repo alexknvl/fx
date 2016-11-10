@@ -1,56 +1,158 @@
 from __future__ import absolute_import
 
+import itertools
 import heapq
 import random
 from collections import deque, defaultdict
-from operator import add, attrgetter, itemgetter
+from .op import identity, itemgetter, attrgetter
 from .semigroups import DefaultSemigroupKs
 
 from sys import version_info
 
 # Uniform map, zip, filter, range
 if version_info[0] == 2:
-    from itertools import imap as map
-    from itertools import izip as zip
-    from itertools import ifilter as filter
-    from __builtin__ import xrange as range
+    from itertools import imap as _map
+    from itertools import izip as _zip
+    from itertools import ifilter as _filter
+    from __builtin__ import xrange as _range
+    from __builtin__ import reduce as _reduce
+    from __builtin__ import reversed as _reversed
+    from itertools import ifilterfalse as _filterfalse
+    from itertools import izip_longest as _zip_longest
 else:
-    from functools import reduce
+    from builtins import map as _map
+    from builtins import zip as _zip
+    from builtins import filter as _filter
+    from builtins import range as _range
+    from builtins import reversed as _reversed
+    from functools import reduce as _reduce
+    from itertools import filterfalse as _filterfalse
+    from itertools import zip_longest as _zip_longest
 
-# Uniform itertools_filterfalse and itertools_zip_longest
-if version_info[0] == 2:
-    from itertools import ifilterfalse as itertools_filterfalse
-    from itertools import izip_longest as itertools_zip_longest
-else:
-    from itertools import filterfalse as itertools_filterfalse
-    from itertools import zip_longest as itertools_zip_longest
 
-import itertools
+map = _map
+"""
+map(function, sequence[, sequence, ...]) -> iterable
 
-map = map
+Make an iterator that computes the function using arguments from each
+of the iterables. If function is set to None, then map() returns
+the arguments as a tuple.
+"""
+
+
 starmap = itertools.starmap
-zip = zip
-zip_longest = itertools_zip_longest
-filter = filter
-reduce = reduce
-range = range
-reversed = reversed
+"""
+Make an iterator that computes the function using arguments obtained
+from the iterable. Used instead of map() when argument parameters are
+already grouped in tuples from a single iterable (the data has been
+"pre-zipped").
+"""
+
+
+zip = _zip
+"""
+Make an iterator that aggregates elements from each of the iterables.
+Used for lock-step iteration over several iterables at a time.
+"""
+
+
+zip_longest = _zip_longest
+"""
+Make an iterator that aggregates elements from each of the iterables.
+If the iterables are of uneven length, missing values are filled-in with
+fillvalue. Iteration continues until the longest iterable is exhausted.
+"""
+
+
+def zip_with(f, *coll):
+    return itertools.starmap(f, itertools.izip(*coll))
+
+
+filter = _filter
+filternot = _filterfalse
+
+reduce = _reduce
+range = _range
+reversed = _reversed
+
+
+def spliton(iterable, key, default_key=None):
+    """
+    Splits iterator whenever key value is not None.
+
+    >>> list(spliton([1, 2, 3, 4, 5], key=lambda i: None if i%2 == 0 else i))
+    [(1, [1, 2]), (3, [3, 4]), (5, [5])]
+    """
+    current_key = default_key
+    elements = []
+
+    for value in iterable:
+        new_key = key(value)
+
+        if new_key is not None:
+            if len(elements) > 0:
+                yield (current_key, elements)
+                elements = []
+            elements.append(value)
+            current_key = new_key
+        else:
+            elements.append(value)
+
+    if len(elements) > 0:
+        yield (current_key, elements)
+
+
+def spliton2(iterable, key, default_key=None, filler=None):
+    current_key = default_key
+    last_value = filler
+    elements = []
+
+    for value in iterable:
+        new_key = key(last_value, value)
+
+        if new_key is not None:
+            if len(elements) > 0:
+                yield (current_key, elements)
+                elements = []
+            elements.append(value)
+            current_key = new_key
+        else:
+            elements.append(value)
+
+        last_value = value
+
+    if len(elements) > 0:
+        yield (current_key, elements)
+
+
 tee = itertools.tee
-chain = itertools.chain
+"""
+Return n independent iterators from a single iterable.
+"""
+
 islice = itertools.islice
 
-identity = lambda value: value
 
-def const(value):
-    def f(*args):
-        return value
-    return f
+"""
+Make an iterator that returns elements from the first iterable until it is
+exhausted, then proceeds to the next iterable, until all of the iterables
+are exhausted. Used for treating consecutive sequences as a single sequence.
+
+>>> list(chain([1, 2], [3], [4]))
+[1, 2, 3, 4]
+>>> list(chain([1], repeat(2, 3), [3]))
+[1, 2, 2, 2, 3]
+"""
+chain = itertools.chain
+
+
+def flatten(iterable):
+    """Flatten one level of nesting."""
+    return chain.from_iterable(iterable)
 
 
 def iterate(f, x, times=None):
-    """
-    Return an iterator yielding x, f(x), f(f(x)) etc.
-    """
+    """Return an iterator yielding x, f(x), f(f(x)) etc."""
     r = repeat(None) if times is None else range(times)
     for _ in r:
         yield x
@@ -61,9 +163,10 @@ repeat = itertools.repeat
 
 
 def repeatfunc(func, times=None, *args):
-    """Repeat calls to func with specified arguments.
+    """
+    Repeat calls to func with specified arguments.
+
     Example:  repeatfunc(random.random)
-    http://docs.python.org/3.4/library/itertools.html#itertools-recipes
     """
     if times is None:
         return starmap(func, repeat(args))
@@ -71,27 +174,21 @@ def repeatfunc(func, times=None, *args):
 
 
 def cycle(iterable, times=None):
-    """Returns the sequence elements n times
-    http://docs.python.org/3.4/library/itertools.html#itertools-recipes
-    """
+    """Cycle through the sequence elements multiple times."""
     if times is None:
         return itertools.cycle(iterable)
     return chain.from_iterable(repeat(tuple(iterable), n))
 
 
-def padnone(iterable):
-    """Returns the sequence elements and then returns None indefinitely.
-    Useful for emulating the behavior of the built-in map() function.
-    http://docs.python.org/3.4/library/itertools.html#itertools-recipes
+def pad(iterable, value=None):
+    """
+    Make an iterator that returns elements from the iterable until it is
+    exhausted, then proceeds to yield a specified value indefinitely.
     """
     return chain(iterable, repeat(None))
 
 
 product = itertools.product
-
-
-def concat(*args):
-    return chain(*(iter(a) for a in args))
 
 
 def take(limit, base):
@@ -359,34 +456,6 @@ max = max
 min = min
 
 
-def remap(iterable, predicate):
-    """
-    >>> remap([3, 2, 3], lambda i, x: x > 0)
-    ([3, 2, 3], [0, 1, 2])
-    >>> remap([3, 2, 3], lambda i, x: x < 0)
-    ([], [-1, -1, -1])
-    >>> remap([3, 2, 3], lambda i, x: x > 2)
-    ([3, 3], [0, -1, 1])
-    >>> remap([3, 3, 3], lambda i, x: x > i + 1)
-    ([3, 3], [0, 1, -1])
-    """
-    remapping = []
-    result = []
-    j = 0
-    for i, v in enumerate(iterable):
-        if predicate(i, v):
-            result.append(v)
-            remapping.append(j)
-            j += 1
-        else:
-            remapping.append(-1)
-    return (result, remapping)
-
-
-def join(iterable):
-    return (v for it in iterable for v in it)
-
-
 def filter_by_min_freq(iterable, n, key=None):
     key = identity if key is None else key
     result = set()
@@ -412,14 +481,14 @@ def filter_by_min_freq(iterable, n, key=None):
     return result
 
 
-def item_indices(lst):
+def indices(iterable):
     result = {}
-    for i, v in enumerate(lst):
+    for i, v in enumerate(iterable):
         result.setdefault(v, i)
     return result
 
 
-def sample(iterable, key=None, rate=1):
+def sample(rate, iterable):
     n = 0
     for v in iterable:
         if n % rate == 0:
@@ -427,17 +496,12 @@ def sample(iterable, key=None, rate=1):
         n += 1
 
 
-def hash_sample(iterable, key=None, rate=1):
-    iterable = iter(iterable)
-    key = identity if key is None else key
-
-    for v in iterable:
-        k = key(v)
-        if hash(k) % rate == 0:
-            yield v
+def hash_sample(rate, iterable, hash=hash):
+    return (v for v in iterable
+            if hash(v) % rate == 0)
 
 
-def reservoir_sample(iterable, n, rng=None):
+def reservoir_sample(limit, iterable, rng=None):
     sample = []
 
     if rng is None:
@@ -450,16 +514,15 @@ def reservoir_sample(iterable, n, rng=None):
         randint = lambda x: rng.randint(0, x + 1)
 
     for i, v in enumerate(iterable):
-        if i < n:
+        if i < limit:
             sample.append(v)
-        elif i >= n and rand() < n / float(i+1):
+        elif i >= limit and rand() < limit / float(i+1):
             replace = randint(len(sample) - 1)
             sample[replace] = v
     return sample
 
 
 def throttle(iterable, key=None, delay=0):
-    iterable = iter(iterable)
     key = identity if key is None else key
 
     last = None
@@ -470,15 +533,12 @@ def throttle(iterable, key=None, delay=0):
             yield v
 
 
-def throttle_threads(iterable, thread_key=None, time_key=None, delay=0):
-    iterable = iter(iterable)
-    thread_key = identity if thread_key is None else thread_key
-    time_key = identity if time_key is None else time_key
+def threaded_throttle(iterable, keys=None, delay=0):
+    assert keys is not None
 
     last = {}
     for v in iterable:
-        thread = thread_key(v)
-        time = time_key(v)
+        thread, key = keys(v)
 
         if thread not in last or last[thread] + delay <= time:
             last[thread] = time
@@ -624,6 +684,30 @@ def windows(sorted_iterable, key_func,
         del items[:remove]
         items += add
         yield (t0, t1, items[:])
+
+
+def remap(iterable, predicate):
+    """
+    >>> remap([3, 2, 3], lambda i, x: x > 0)
+    ([3, 2, 3], [0, 1, 2])
+    >>> remap([3, 2, 3], lambda i, x: x < 0)
+    ([], [-1, -1, -1])
+    >>> remap([3, 2, 3], lambda i, x: x > 2)
+    ([3, 3], [0, -1, 1])
+    >>> remap([3, 3, 3], lambda i, x: x > i + 1)
+    ([3, 3], [0, 1, -1])
+    """
+    remapping = []
+    result = []
+    j = 0
+    for i, v in enumerate(iterable):
+        if predicate(i, v):
+            result.append(v)
+            remapping.append(j)
+            j += 1
+        else:
+            remapping.append(-1)
+    return (result, remapping)
 
 
 if __name__ == "__main__":
