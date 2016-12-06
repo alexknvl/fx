@@ -1,16 +1,21 @@
+from typing import TypeVar, Callable
+T = TypeVar('T')
+U = TypeVar('U')
+V = TypeVar('V')
+
 from functools import partial, update_wrapper, wraps
 from inspect import getargspec
 from operator import add, attrgetter, itemgetter
 
 identity = lambda value: value
 
-def const(value):
+def const(value: T) -> Callable[[], T]:
     def f(*args):
         return value
     return f
 
 
-def flip(f):
+def flip(f: Callable[[U, V], T]) -> Callable[[V, U], T]:
     """Return function that will apply arguments in reverse order"""
 
     flipper = getattr(f, "__flipback__", None)

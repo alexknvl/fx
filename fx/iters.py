@@ -1,25 +1,26 @@
+#!/usr/bin/env python3
+
 from __future__ import absolute_import
 
+from typing import Iterable, Optional, TypeVar, List, \
+                   Callable, Iterator, Tuple, Dict
+T = TypeVar('T')
+U = TypeVar('U')
+V = TypeVar('V')
+
+import sys
 import itertools
 import heapq
 import random
+
 from collections import deque, defaultdict
 from .op import identity, itemgetter, attrgetter
 from .semigroups import DefaultSemigroupKs
 
-from sys import version_info
-
 # Uniform map, zip, filter, range
-if version_info[0] == 2:
-    from itertools import imap as _map
-    from itertools import izip as _zip
-    from itertools import ifilter as _filter
-    from __builtin__ import xrange as _range
-    from __builtin__ import reduce as _reduce
-    from __builtin__ import reversed as _reversed
-    from itertools import ifilterfalse as _filterfalse
-    from itertools import izip_longest as _zip_longest
-else:
+if sys.version_info[0] >= 2:
+    from builtins import max as _max
+    from builtins import min as _min
     from builtins import map as _map
     from builtins import zip as _zip
     from builtins import filter as _filter
@@ -28,6 +29,17 @@ else:
     from functools import reduce as _reduce
     from itertools import filterfalse as _filterfalse
     from itertools import zip_longest as _zip_longest
+else:
+    from __builtin__ import max as _max
+    from __builtin__ import min as _min
+    from itertools import imap as _map
+    from itertools import izip as _zip
+    from itertools import ifilter as _filter
+    from __builtin__ import xrange as _range
+    from __builtin__ import reduce as _reduce
+    from __builtin__ import reversed as _reversed
+    from itertools import ifilterfalse as _filterfalse
+    from itertools import izip_longest as _zip_longest
 
 
 map = _map
@@ -65,7 +77,7 @@ fillvalue. Iteration continues until the longest iterable is exhausted.
 
 
 def zip_with(f, *coll):
-    return itertools.starmap(f, itertools.izip(*coll))
+    return starmap(f, zip(*coll))
 
 
 filter = _filter
@@ -76,7 +88,10 @@ range = _range
 reversed = _reversed
 
 
-def spliton(iterable, key, default_key=None):
+def spliton(iterable: Iterable[T],
+            key: Callable[[T], Optional[U]],
+            default_key: U=None
+            ) -> Iterator[Tuple[U, List[T]]]:
     """
     Splits iterator whenever key value is not None.
 
@@ -84,7 +99,7 @@ def spliton(iterable, key, default_key=None):
     [(1, [1, 2]), (3, [3, 4]), (5, [5])]
     """
     current_key = default_key
-    elements = []
+    elements = [] # type: List[T]
 
     for value in iterable:
         new_key = key(value)
@@ -102,10 +117,14 @@ def spliton(iterable, key, default_key=None):
         yield (current_key, elements)
 
 
-def spliton2(iterable, key, default_key=None, filler=None):
+def spliton2(iterable: Iterable[T],
+             key: Callable[[T, T], Optional[U]],
+             default_key: U=None,
+             filler: T=None
+             ) -> Iterator[Tuple[U, List[T]]]:
     current_key = default_key
     last_value = filler
-    elements = []
+    elements = [] # type: List[T]
 
     for value in iterable:
         new_key = key(last_value, value)
@@ -146,7 +165,7 @@ are exhausted. Used for treating consecutive sequences as a single sequence.
 chain = itertools.chain
 
 
-def flatten(iterable):
+def flatten(iterable: Iterable[Iterable[T]]) -> Iterable[T]:
     """Flatten one level of nesting."""
     return chain.from_iterable(iterable)
 
@@ -177,7 +196,7 @@ def cycle(iterable, times=None):
     """Cycle through the sequence elements multiple times."""
     if times is None:
         return itertools.cycle(iterable)
-    return chain.from_iterable(repeat(tuple(iterable), n))
+    return chain.from_iterable(repeat(tuple(iterable), times))
 
 
 def pad(iterable, value=None):
@@ -313,18 +332,18 @@ def peekwhile(predicate, base):
     return elements[:], iter(elements)
 
 
-def nth(iterable, n, default=None):
+def nth(iterable: Iterable[T], n: int, default: Optional[T]=None) -> Optional[T]:
     """Returns the nth item or a default value
     http://docs.python.org/3.4/library/itertools.html#itertools-recipes
     """
     return next(islice(iterable, n, None), default)
 
 
-def head(iterable, default=None):
+def head(iterable: Iterable[T], default: Optional[T]=None) -> Optional[T]:
     return nth(iterable, 0, default)
 
 
-def tail(iterable, default=None):
+def tail(iterable: Iterable[T])-> Iterable[T]:
     return drop(1, iterable)
 
 
@@ -344,10 +363,10 @@ def countwhile(predicate, iterable):
     return count(None, takewhile(predicate, iterable))
 
 
-def counts(iterable, key=None):
+def counts(iterable: Iterable[T], key=None):
     key = identity if key is None else key
 
-    result = defaultdict(int)
+    result = defaultdict(int) # type: Dict[T, int]
     for x in iterable:
         result[x] += 1
     return result
@@ -452,8 +471,8 @@ def groupby(iterable, key=None, map=None, semigroup='list'):
     return result
 
 
-max = max
-min = min
+max = _max
+min = _min
 
 
 def filter_by_min_freq(iterable, n, key=None):
@@ -481,14 +500,14 @@ def filter_by_min_freq(iterable, n, key=None):
     return result
 
 
-def indices(iterable):
-    result = {}
+def indices(iterable: Iterable[T]) -> Dict[T, int]:
+    result = {} # type: Dict[T, int]
     for i, v in enumerate(iterable):
         result.setdefault(v, i)
     return result
 
 
-def sample(rate, iterable):
+def sample(rate: int, iterable: Iterable[T]) -> Iterator[T]:
     n = 0
     for v in iterable:
         if n % rate == 0:
@@ -496,9 +515,8 @@ def sample(rate, iterable):
         n += 1
 
 
-def hash_sample(rate, iterable, hash=hash):
-    return (v for v in iterable
-            if hash(v) % rate == 0)
+def hash_sample(rate: int, iterable: Iterable[T], hash=hash) -> Iterator[T]:
+    return (v for v in iterable if hash(v) % rate == 0)
 
 
 def reservoir_sample(limit, iterable, rng=None):
@@ -540,8 +558,8 @@ def threaded_throttle(iterable, keys=None, delay=0):
     for v in iterable:
         thread, key = keys(v)
 
-        if thread not in last or last[thread] + delay <= time:
-            last[thread] = time
+        if thread not in last or last[thread] + delay <= key:
+            last[thread] = key
             yield v
 
 
