@@ -42,6 +42,9 @@ else:
     from itertools import izip_longest as _zip_longest
 
 
+_marker = object()
+
+
 map = _map
 """
 map(function, sequence[, sequence, ...]) -> iterable
@@ -163,6 +166,30 @@ are exhausted. Used for treating consecutive sequences as a single sequence.
 [1, 2, 2, 2, 3]
 """
 chain = itertools.chain
+
+
+def interleave(*iterables):
+    """Return a new iterable yielding from each iterable in turn,
+    until the shortest is exhausted.
+        >>> list(interleave([1, 2, 3], [4, 5], [6, 7, 8]))
+        [1, 4, 6, 2, 5, 7]
+    Note that this is the same as ``chain(*zip(*iterables))``.
+    For a version that doesn't terminate after the shortest iterable is
+    exhausted, see ``interleave_longest()``.
+    """
+    return chain.from_iterable(zip(*iterables))
+
+
+def interleave_longest(*iterables):
+    """Return a new iterable yielding from each iterable in turn,
+    skipping any that are exhausted.
+        >>> list(interleave_longest([1, 2, 3], [4, 5], [6, 7, 8]))
+        [1, 4, 6, 2, 5, 7, 3, 8]
+    Note that this is an alternate implementation of ``roundrobin()`` from the
+    itertools documentation.
+    """
+    i = chain.from_iterable(zip_longest(*iterables, fillvalue=_marker))
+    return filter(lambda x: x is not _marker, i)
 
 
 def flatten(iterable: Iterable[Iterable[T]]) -> Iterable[T]:
@@ -449,7 +476,7 @@ def grouped(n, iterable, fillvalue=None):
 rungroupby = itertools.groupby
 
 
-def groupby(iterable, key=None, map=None, semigroup='list'):
+def groupby(iterable: Iterable[T], key=None, keys=None, map=None, semigroup='list'):
     """
     ... # doctest: +NORMALIZE_WHITESPACE
     >>> d = groupby(['abc', 'acd', 'dsa', 'dw', 'd', 'k'],
@@ -457,17 +484,26 @@ def groupby(iterable, key=None, map=None, semigroup='list'):
     >>> sorted(d)
     [('a', ['abc', 'acd']), ('d', ['dsa', 'dw', 'd']), ('k', ['k'])]
     """
-    key = identity if key is None else key
+    if keys is None:
+        if key is not None:
+            keys = lambda t: (key(t),)
+        else:
+            keys = lambda t: (t,)
     map = identity if map is None else map
     sgk = DefaultSemigroupKs.get(semigroup, semigroup)
 
     result = {}
+    def resolve(d, k):
+        for i in range(len(k) - 1):
+            d = d.setdefault(k[i], {})
+        return d, k[-1]
+
     for v in iterable:
-        k = key(v)
-        if k in result:
-            result[k] = sgk.iappend(result[k], map(v))
+        d, k = resolve(result, keys(v))
+        if k in d:
+            d[k] = sgk.iappend(d[k], map(v))
         else:
-            result[k] = sgk.unit(map(v))
+            d[k] = sgk.unit(map(v))
     return result
 
 
