@@ -1,4 +1,4 @@
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Any
 T = TypeVar('T')
 U = TypeVar('U')
 V = TypeVar('V')
@@ -10,7 +10,7 @@ from operator import add, attrgetter, itemgetter
 identity = lambda value: value
 
 def const(value: T) -> Callable[[], T]:
-    def f(*args):
+    def f(*args: List[Any]) -> T:
         return value
     return f
 
@@ -22,7 +22,7 @@ def flip(f: Callable[[U, V], T]) -> Callable[[V, U], T]:
     if flipper is not None:
         return flipper
 
-    def _flipper(a, b):
+    def _flipper(a: V, b: U) -> T:
         return f(b, a)
 
     setattr(_flipper, "__flipback__", f)

@@ -1,51 +1,60 @@
 #!/usr/bin/env python3
-
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
 from typing import Iterable, Optional, TypeVar, List, \
-                   Callable, Iterator, Tuple, Dict
+                   Callable, Iterator, Tuple, Dict, \
+                   Any, Set, Union
 T = TypeVar('T')
 U = TypeVar('U')
 V = TypeVar('V')
 
-import sys
-import itertools
-import heapq
-import random
+import builtins    as _builtins
+import itertools   as _itertools
+import functools   as _functools
+import random      as _random
+import collections as _collections
 
-from collections import deque, defaultdict
-from .op import identity, itemgetter, attrgetter
-from .semigroups import DefaultSemigroupKs
+import fx.semigroups as _semigroups
 
-# Uniform map, zip, filter, range
-if sys.version_info[0] >= 2:
-    from builtins import max as _max
-    from builtins import min as _min
-    from builtins import map as _map
-    from builtins import zip as _zip
-    from builtins import filter as _filter
-    from builtins import range as _range
-    from builtins import reversed as _reversed
-    from functools import reduce as _reduce
-    from itertools import filterfalse as _filterfalse
-    from itertools import zip_longest as _zip_longest
-else:
-    from __builtin__ import max as _max
-    from __builtin__ import min as _min
-    from itertools import imap as _map
-    from itertools import izip as _zip
-    from itertools import ifilter as _filter
-    from __builtin__ import xrange as _range
-    from __builtin__ import reduce as _reduce
-    from __builtin__ import reversed as _reversed
-    from itertools import ifilterfalse as _filterfalse
-    from itertools import izip_longest as _zip_longest
+from fx.op import identity, itemgetter, attrgetter
 
 
-_marker = object()
+__all__ = [
+    'min', 'max',
+    'map', 'starmap'
+    'zip', 'zip_with', 'zip_longest',
+    'spliton', 'spliton2',
+    'filter', 'filterfalse',
+    'range', 'reversed', 'reduce', 'tee',
+    'islice', 'chain', 'product',
+    'interleave', 'interleave_longest',
+    'flatten',
+    'iterate', 'repeat', 'repeatfunc',
+    'cycle', 'pad',
+    'take', 'drop', 'peek',
+    'takewhile', 'dropwhile',
+    'takelast', 'droplast', 'peekwhile'
+    'nth', 'head', 'tail',
+    'find',
+    'count', 'countwhile', 'counter',
+    'uniq',
+    'pairwise', 'sliding', 'grouped',
+    'groupby', 'rungroupby',
+    'filter_by_min_freq',
+    'indices',
+    'sample', 'hash_sample', 'reservoir_sample',
+    'throttle', 'threaded_throttle',
+    'merge_many',
+    'shuffle'
+    'windowdiffs', 'windows'
+    'remap']
 
 
-map = _map
+_SENTINEL = object()
+
+
+map = _builtins.map
 """
 map(function, sequence[, sequence, ...]) -> iterable
 
@@ -55,7 +64,7 @@ the arguments as a tuple.
 """
 
 
-starmap = itertools.starmap
+starmap = _itertools.starmap
 """
 Make an iterator that computes the function using arguments obtained
 from the iterable. Used instead of map() when argument parameters are
@@ -64,14 +73,14 @@ already grouped in tuples from a single iterable (the data has been
 """
 
 
-zip = _zip
+zip = _builtins.zip
 """
 Make an iterator that aggregates elements from each of the iterables.
 Used for lock-step iteration over several iterables at a time.
 """
 
 
-zip_longest = _zip_longest
+zip_longest = _itertools.zip_longest
 """
 Make an iterator that aggregates elements from each of the iterables.
 If the iterables are of uneven length, missing values are filled-in with
@@ -79,21 +88,21 @@ fillvalue. Iteration continues until the longest iterable is exhausted.
 """
 
 
-def zip_with(f, *coll):
+def zip_with(f: Callable[..., T], *coll: List[Iterable[U]]) -> Iterator[T]:
     return starmap(f, zip(*coll))
 
 
-filter = _filter
-filternot = _filterfalse
+filter = _builtins.filter
+filternot = _itertools.filterfalse
 
-reduce = _reduce
-range = _range
-reversed = _reversed
+reduce = _functools.reduce
+range = _builtins.range
+reversed = _builtins.reversed
 
 
 def spliton(iterable: Iterable[T],
             key: Callable[[T], Optional[U]],
-            default_key: U=None
+            default_key: Optional[U]=None
             ) -> Iterator[Tuple[U, List[T]]]:
     """
     Splits iterator whenever key value is not None.
@@ -122,7 +131,7 @@ def spliton(iterable: Iterable[T],
 
 def spliton2(iterable: Iterable[T],
              key: Callable[[T, T], Optional[U]],
-             default_key: U=None,
+             default_key: Optional[U]=None,
              filler: T=None
              ) -> Iterator[Tuple[U, List[T]]]:
     current_key = default_key
@@ -147,14 +156,16 @@ def spliton2(iterable: Iterable[T],
         yield (current_key, elements)
 
 
-tee = itertools.tee
+tee = _itertools.tee
 """
 Return n independent iterators from a single iterable.
 """
 
-islice = itertools.islice
+islice = _itertools.islice
 
 
+
+chain = _itertools.chain
 """
 Make an iterator that returns elements from the first iterable until it is
 exhausted, then proceeds to the next iterable, until all of the iterables
@@ -165,14 +176,16 @@ are exhausted. Used for treating consecutive sequences as a single sequence.
 >>> list(chain([1], repeat(2, 3), [3]))
 [1, 2, 2, 2, 3]
 """
-chain = itertools.chain
 
 
-def interleave(*iterables):
-    """Return a new iterable yielding from each iterable in turn,
+def interleave(*iterables: List[Iterable[T]]) -> Iterator[T]:
+    """
+    Return a new iterable yielding from each iterable in turn,
     until the shortest is exhausted.
-        >>> list(interleave([1, 2, 3], [4, 5], [6, 7, 8]))
-        [1, 4, 6, 2, 5, 7]
+
+    >>> list(interleave([1, 2, 3], [4, 5], [6, 7, 8]))
+    [1, 4, 6, 2, 5, 7]
+
     Note that this is the same as ``chain(*zip(*iterables))``.
     For a version that doesn't terminate after the shortest iterable is
     exhausted, see ``interleave_longest()``.
@@ -180,16 +193,19 @@ def interleave(*iterables):
     return chain.from_iterable(zip(*iterables))
 
 
-def interleave_longest(*iterables):
-    """Return a new iterable yielding from each iterable in turn,
+def interleave_longest(*iterables: List[Iterable[T]]) -> Iterator[T]:
+    """
+    Return a new iterable yielding from each iterable in turn,
     skipping any that are exhausted.
-        >>> list(interleave_longest([1, 2, 3], [4, 5], [6, 7, 8]))
-        [1, 4, 6, 2, 5, 7, 3, 8]
+
+    >>> list(interleave_longest([1, 2, 3], [4, 5], [6, 7, 8]))
+    [1, 4, 6, 2, 5, 7, 3, 8]
+
     Note that this is an alternate implementation of ``roundrobin()`` from the
     itertools documentation.
     """
-    i = chain.from_iterable(zip_longest(*iterables, fillvalue=_marker))
-    return filter(lambda x: x is not _marker, i)
+    i = chain.from_iterable(zip_longest(*iterables, fillvalue=_SENTINEL))
+    return filter(lambda x: x is not _SENTINEL, i)
 
 
 def flatten(iterable: Iterable[Iterable[T]]) -> Iterable[T]:
@@ -197,7 +213,7 @@ def flatten(iterable: Iterable[Iterable[T]]) -> Iterable[T]:
     return chain.from_iterable(iterable)
 
 
-def iterate(f, x, times=None):
+def iterate(f: Callable[[T], T], x: T, times: Optional[int]=None) -> Iterator[T]:
     """Return an iterator yielding x, f(x), f(f(x)) etc."""
     r = repeat(None) if times is None else range(times)
     for _ in r:
@@ -205,10 +221,10 @@ def iterate(f, x, times=None):
         x = f(x)
 
 
-repeat = itertools.repeat
+repeat = _itertools.repeat
 
 
-def repeatfunc(func, times=None, *args):
+def repeatfunc(func: Callable[..., T], times: Optional[int]=None, *args: List[Any]) -> Iterator[T]:
     """
     Repeat calls to func with specified arguments.
 
@@ -219,25 +235,25 @@ def repeatfunc(func, times=None, *args):
     return starmap(func, repeat(args, times))
 
 
-def cycle(iterable, times=None):
+def cycle(iterable: Iterable[T], times: Optional[int]=None) -> Iterator[T]:
     """Cycle through the sequence elements multiple times."""
     if times is None:
-        return itertools.cycle(iterable)
+        return _itertools.cycle(iterable)
     return chain.from_iterable(repeat(tuple(iterable), times))
 
 
-def pad(iterable, value=None):
+def pad(iterable: Iterable[T], value: T=None) -> Iterator[T]:
     """
     Make an iterator that returns elements from the iterable until it is
     exhausted, then proceeds to yield a specified value indefinitely.
     """
-    return chain(iterable, repeat(None))
+    return chain(iterable, repeat(value))
 
 
-product = itertools.product
+product = _itertools.product
 
 
-def take(limit, base):
+def take(limit: int, base: Iterable[T]) -> Iterator[T]:
     """
     >>> list(take(2, [1, 2, 3, 4]))
     [1, 2]
@@ -245,11 +261,10 @@ def take(limit, base):
     [1]
     """
     assert limit >= 0
-
     return islice(base, limit)
 
 
-def drop(limit, base):
+def drop(limit: int, base: Iterable[T]) -> Iterator[T]:
     """
     >>> list(drop(2, [1, 2, 3, 4]))
     [3, 4]
@@ -257,11 +272,10 @@ def drop(limit, base):
     []
     """
     assert limit >= 0
-
     return islice(base, limit, None)
 
 
-def peek(limit, base):
+def peek(limit: int, base: Iterable[T]) -> Tuple[List[T], Iterator[T]]:
     """
     Peeks at most 'limit' elements from an iterator, returning
     the original iterator intact.
@@ -291,21 +305,19 @@ def peek(limit, base):
         return elements[:], chain(iter(elements), base)
 
 
-def takelast(limit, base):
-    """
-    Return iterator to produce last n items from origin.
+def takelast(limit: int, base: Iterable[T]) -> Iterator[T]:
+    """Return iterator to produce last n items from origin.
 
     >>> list(takelast(2, [1, 2, 3, 4]))
     [3, 4]
     >>> list(takelast(2, [1]))
     [1]
     """
-    return iter(deque(base, maxlen=limit))
+    return iter(_collections.deque(base, maxlen=limit))
 
 
-def droplast(limit, base):
-    """
-    Return iterator to produce items from origin except last n
+def droplast(limit: int, base: Iterable[T]) -> Iterator[T]:
+    """Return iterator to produce items from origin except last n
 
     >>> list(droplast(2, [1, 2, 3, 4]))
     [1, 2]
@@ -315,24 +327,24 @@ def droplast(limit, base):
     t1, t2 = tee(base)
     return map(itemgetter(0), zip(t1, islice(t2, limit, None)))
 
+takewhile = _itertools.takewhile
 """
 >>> list(takewhile(lambda x: x <= 2, [1, 2, 3, 4, 2]))
 [1, 2]
 >>> list(takewhile(lambda x: x <= 2, [1]))
 [1]
 """
-takewhile = itertools.takewhile
 
+dropwhile = _itertools.dropwhile
 """
 >>> list(dropwhile(lambda x: x <= 2, [1, 2, 3, 4, 2]))
 [3, 4, 2]
 >>> list(dropwhile(lambda x: x <= 2, [1]))
 []
 """
-dropwhile = itertools.dropwhile
 
-
-def peekwhile(predicate, base):
+def peekwhile(predicate: Callable[[T], bool], base: Iterable[T]
+              ) -> Tuple[List[T], Iterator[T]]:
     """
     Peeks elements from an iterator until predicate fails, returning
     the original iterator intact.
@@ -374,11 +386,14 @@ def tail(iterable: Iterable[T])-> Iterable[T]:
     return drop(1, iterable)
 
 
-def find(predicate, iterable, default=None):
+def find(predicate: Callable[[T], bool],
+         iterable: Iterable[T],
+         default: T=None
+         ) -> Optional[T]:
     return next(dropwhile(lambda x: not predicate(x), iterable), default)
 
 
-def count(predicate, iterable):
+def count(predicate: Optional[Callable[[T], bool]], iterable: Iterable[T]) -> int:
     """Count how many times the predicate is true."""
     if predicate is None:
         return sum(1 for x in iterable)
@@ -386,28 +401,26 @@ def count(predicate, iterable):
         return sum(1 for x in iterable if predicate(x))
 
 
-def countwhile(predicate, iterable):
+def countwhile(predicate: Callable[[T], bool], iterable: Iterable[T]) -> int:
     return count(None, takewhile(predicate, iterable))
 
 
-def counts(iterable: Iterable[T], key=None):
-    key = identity if key is None else key
-
-    result = defaultdict(int) # type: Dict[T, int]
-    for x in iterable:
-        result[x] += 1
-    return result
+def counter(iterable: Iterable[T],
+            key: Callable[[T], U]=identity
+            ) -> Dict[U, int]:
+    return _collections.Counter(key(x) for x in iterable)
 
 
-def uniq(iterable, key=None, adjacent=True):
+def uniq(iterable: Iterable[T],
+         key: Callable[[T], U]=identity,
+         adjacent: bool=True
+         ) -> Iterator[T]:
     """
     Similar to unix uniq command, selects unique elements from an iterator.
     """
 
-    key = identity if key is None else key
-
     if adjacent:
-        last_key = object()
+        last_key = _SENTINEL
         for v in iterable:
             k = key(v)
             if k == last_key:
@@ -415,7 +428,7 @@ def uniq(iterable, key=None, adjacent=True):
             last_key = k
             yield v
     else:
-        seen = set()
+        seen = set() # type: Set[U]
         for v in iterable:
             k = key(v)
             if k in seen:
@@ -424,14 +437,15 @@ def uniq(iterable, key=None, adjacent=True):
             yield v
 
 
-def pairwise(iterable):
+def pairwise(iterable: Iterable[T]) -> Iterator[Tuple[T, T]]:
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     a, b = tee(iterable)
     next(b, None)
-    return izip(a, b)
+    return zip(a, b)
 
 
-def sliding(iterable, length, step=1):
+def sliding(iterable: Iterable[T], length: int, step: int=1
+            ) -> Iterator[List[T]]:
     """Groups elements in fixed size blocks by passing a "sliding window"
     over them (as opposed to partitioning them, as is done in grouped.)
     "Sliding window" step is 1 by default.
@@ -464,7 +478,8 @@ def sliding(iterable, length, step=1):
         yield result[:]
 
 
-def grouped(n, iterable, fillvalue=None):
+def grouped(n: int, iterable: Iterable[T], fillvalue: T=None
+            ) -> Iterator[Tuple[T, ...]]:
     """Collect data into fixed-length chunks or blocks, so
     grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx
     http://docs.python.org/3.4/library/itertools.html#itertools-recipes
@@ -473,10 +488,15 @@ def grouped(n, iterable, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-rungroupby = itertools.groupby
+rungroupby = _itertools.groupby
 
 
-def groupby(iterable: Iterable[T], key=None, keys=None, map=None, semigroup='list'):
+def groupby(iterable: Iterable[T],
+            key: Optional[Callable[[T], Any]]=None,
+            keys: Optional[Callable[[T], Tuple[Any, ...]]]=None,
+            mapfunc: Callable[[T], U]=identity,
+            semigroup: Union[str, _semigroups.AlgebraK[U, V]]='list'
+            ) -> Dict[Any, Any]:
     """
     ... # doctest: +NORMALIZE_WHITESPACE
     >>> d = groupby(['abc', 'acd', 'dsa', 'dw', 'd', 'k'],
@@ -484,38 +504,48 @@ def groupby(iterable: Iterable[T], key=None, keys=None, map=None, semigroup='lis
     >>> sorted(d)
     [('a', ['abc', 'acd']), ('d', ['dsa', 'dw', 'd']), ('k', ['k'])]
     """
+
     if keys is None:
         if key is not None:
-            keys = lambda t: (key(t),)
+            keyfunc = lambda t: (key(t),)
         else:
-            keys = lambda t: (t,)
-    map = identity if map is None else map
-    sgk = DefaultSemigroupKs.get(semigroup, semigroup)
+            keyfunc = lambda t: (t,)
+    else:
+        keyfunc = keys
 
-    result = {}
-    def resolve(d, k):
+    if isinstance(semigroup, str):
+        sgk = _semigroups.get_named(semigroup)
+        # type: _semigroups.AlgebraK[U, V]
+    else:
+        sgk = semigroup
+
+    result = {} # type: Dict[Any, Any]
+    def resolve(d: Dict[Any, Any], k: Tuple[Any, ...]
+                ) -> Tuple[Dict[Any, V], Any]:
         for i in range(len(k) - 1):
             d = d.setdefault(k[i], {})
         return d, k[-1]
 
     for v in iterable:
-        d, k = resolve(result, keys(v))
+        d, k = resolve(result, keyfunc(v))
         if k in d:
-            d[k] = sgk.iappend(d[k], map(v))
+            d[k] = sgk.iappend(d[k], mapfunc(v))
         else:
-            d[k] = sgk.unit(map(v))
+            d[k] = sgk.unit(mapfunc(v))
     return result
 
 
-max = _max
-min = _min
+max = _builtins.max
+min = _builtins.min
 
 
-def filter_by_min_freq(iterable, n, key=None):
-    key = identity if key is None else key
-    result = set()
-    result_keys = set()
-    candidates = {}
+def filter_by_min_freq(iterable: Iterable[T],
+                       n: int,
+                       key: Callable[[T], U]=identity
+                       ) -> Set[T]:
+    result      = set() # type: Set[T]
+    result_keys = set() # type: Set[U]
+    candidates  = {}    # type: Dict[U, int]
 
     for v in iterable:
         k = key(v)
@@ -528,7 +558,7 @@ def filter_by_min_freq(iterable, n, key=None):
 
         if cnt >= n:
             del candidates[k]
-            result.add(k)
+            result.add(v)
             result_keys.add(k)
         else:
             candidates[k] = cnt
@@ -551,17 +581,21 @@ def sample(rate: int, iterable: Iterable[T]) -> Iterator[T]:
         n += 1
 
 
-def hash_sample(rate: int, iterable: Iterable[T], hash=hash) -> Iterator[T]:
+def hash_sample(rate: int, iterable: Iterable[T],
+                hash: Callable[[T], int]=hash
+                ) -> Iterator[T]:
     return (v for v in iterable if hash(v) % rate == 0)
 
 
-def reservoir_sample(limit, iterable, rng=None):
+def reservoir_sample(limit: int,
+                     iterable: Iterable[T],
+                     rng: Any=None) -> List[T]:
     sample = []
 
     if rng is None:
-        rand = random.random
+        rand = _random.random
         # python's randint is inclusive
-        randint = lambda x: random.randint(0, x)
+        randint = lambda x: _random.randint(0, x)
     else:
         rand = rng.rand
         # numpy's randint is exclusive on the higher bound
@@ -576,9 +610,10 @@ def reservoir_sample(limit, iterable, rng=None):
     return sample
 
 
-def throttle(iterable, key=None, delay=0):
-    key = identity if key is None else key
-
+def throttle(iterable: Iterable[T],
+             key: Callable[[T], float]=identity,
+             delay: float=0
+             ) -> Iterator[T]:
     last = None
     for v in iterable:
         k = key(v)
@@ -587,10 +622,11 @@ def throttle(iterable, key=None, delay=0):
             yield v
 
 
-def threaded_throttle(iterable, keys=None, delay=0):
-    assert keys is not None
-
-    last = {}
+def threaded_throttle(iterable: Iterable[T],
+                      keys: Callable[[T], Tuple[U, float]],
+                      delay: float=0
+                      ) -> Iterator[T]:
+    last = {} # type: Dict[U, float]
     for v in iterable:
         thread, key = keys(v)
 
@@ -599,21 +635,22 @@ def threaded_throttle(iterable, keys=None, delay=0):
             yield v
 
 
-def merge_many(*args, **kwargs):
+def merge_many(key: Callable[[T], U], *args: List[Iterable[T]]) -> Iterator[T]:
     """Merge multiple sorted inputs into a single sorted output.
 
     Equivalent to:  sorted(itertools.chain(*iterables))
 
-    >>> list(merge_many([1,3,5,7], [0,2,4,8], [5,10,15,20], [], [25]))
+    >>> list(merge_many(identity, [1,3,5,7], [0,2,4,8], [5,10,15,20], [], [25]))
     [0, 1, 2, 3, 4, 5, 5, 7, 8, 10, 15, 20, 25]
 
     """
-    key = kwargs.get('key', identity)
-    heappop, siftup, _StopIteration = \
-        heapq.heappop, heapq._siftup, StopIteration
+    import heapq as _heapq
 
-    its = []
-    h = []
+    heappop, siftup, _StopIteration = \
+        _heapq.heappop, _heapq._siftup, StopIteration
+
+    its = [] # type: List[List[Any]]
+    h   = [] # type: List[List[Any]]
     h_append = h.append
     for it in map(iter, args):
         try:
@@ -624,7 +661,7 @@ def merge_many(*args, **kwargs):
             h_append([k, n])
         except _StopIteration:
             pass
-    heapq.heapify(h)
+    _heapq.heapify(h)
 
     while 1:
         try:
@@ -646,18 +683,20 @@ def merge_many(*args, **kwargs):
             return
 
 
-def shuffle(iterable, rng=None):
+def shuffle(iterable: Iterable[T], rng: Any=None) -> List[T]:
     if rng is None:
-        rng = random
+        rng = _random
     result = list(iterable)
     rng.shuffle(result)
     return result
 
 
-def windowdiffs(sorted_iterable, key_func,
-                window_size,
-                window_step=None,
-                window_start=None):
+def windowdiffs(sorted_iterable: Iterable[T],
+                key_func: Callable[[T], float],
+                window_size: float,
+                window_step: float=None,
+                window_start: float=None
+                ) -> Iterator[Tuple[float, float, int, List[T]]]:
     """
     >>> list(windowdiffs([0, 1, 1, 2, 2, 2.4, 2.9, 3.5,
     ...                   4, 4.1, 4.2, 4.3, 5], lambda k: k, 2, 1))
@@ -670,9 +709,9 @@ def windowdiffs(sorted_iterable, key_func,
     """
     values = iter(sorted_iterable)
 
-    old_keys = []
-    new_keys = []
-    new_values = []
+    old_keys   = [] # type: List[float]
+    new_keys   = [] # type: List[float]
+    new_values = [] # type: List[T]
 
     # If window_step is not specified, assume that
     # the step is equal to the size.
@@ -716,10 +755,12 @@ def windowdiffs(sorted_iterable, key_func,
            remove, new_values)
 
 
-def windows(sorted_iterable, key_func,
-            window_size,
-            window_step=None,
-            window_start=None):
+def windows(sorted_iterable: Iterable[T],
+            key_func: Callable[[T], float],
+            window_size: float,
+            window_step: float=None,
+            window_start: float=None
+            ) -> Iterator[Tuple[float, float, List[T]]]:
     """
     >>> list(windows([0, 1, 1, 2, 2, 2.4, 2.9, 3.5,
     ...               4, 4.1, 4.2, 4.3, 5], lambda k: k, 2, 1))
@@ -733,14 +774,15 @@ def windows(sorted_iterable, key_func,
     diffs = windowdiffs(sorted_iterable, key_func,
                         window_size, window_step, window_start)
 
-    items = []
+    items = [] # type: List[T]
     for t0, t1, remove, add in diffs:
         del items[:remove]
         items += add
         yield (t0, t1, items[:])
 
 
-def remap(iterable, predicate):
+def remap(iterable: Iterable[T], predicate: Callable[[int, T], bool]
+          ) -> Tuple[List[T], List[int]]:
     """
     >>> remap([3, 2, 3], lambda i, x: x > 0)
     ([3, 2, 3], [0, 1, 2])
