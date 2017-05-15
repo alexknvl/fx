@@ -54,6 +54,18 @@ __all__ = [
 _SENTINEL = object()
 
 
+iter = _builtins.iter
+
+
+def destructive(lst: List[T]) -> Iterator[T]:
+    if not isinstance(lst, list):
+        raise ValueError('Destructive iterator requires a mutable list.')
+
+    for i, v in enumerate(lst):
+        lst[i] = None
+        yield v
+
+
 map = _builtins.map
 """
 map(function, sequence[, sequence, ...]) -> iterable
