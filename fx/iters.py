@@ -105,12 +105,29 @@ def zip_with(f: Callable[..., T], *coll: List[Iterable[U]]) -> Iterator[T]:
 
 
 filter = _builtins.filter
+"""
+Construct an iterator from those elements of iterable for which function
+returns true. iterable may be either a sequence, a container which supports
+iteration, or an iterator. If function is None, the identity function is
+assumed, that is, all elements of iterable that are false are removed.
+
+>>> list(filter(lambda x: x > 0, [1, 2, -1, 3]))
+[1, 2, 3]
+"""
+
+
 filternot = _itertools.filterfalse
 
 reduce = _functools.reduce
 range = _builtins.range
-reversed = _builtins.reversed
 
+
+reversed = _builtins.reversed
+"""
+Return a reverse iterator. seq must be an object which has a __reversed__()
+method or supports the sequence protocol (the __len__() method and the
+__getitem__() method with integer arguments starting at 0).
+"""
 
 def spliton(iterable: Iterable[T],
             key: Callable[[T], Optional[U]],
@@ -221,12 +238,24 @@ def interleave_longest(*iterables: List[Iterable[T]]) -> Iterator[T]:
 
 
 def flatten(iterable: Iterable[Iterable[T]]) -> Iterable[T]:
-    """Flatten one level of nesting."""
+    """
+    Flatten one level of nesting.
+
+    >>> list(flatten([[1], [2, 3]]))
+    [1, 2, 3]
+    """
     return chain.from_iterable(iterable)
 
 
 def iterate(f: Callable[[T], T], x: T, times: Optional[int]=None) -> Iterator[T]:
-    """Return an iterator yielding x, f(x), f(f(x)) etc."""
+    """
+    Return an iterator yielding x, f(x), f(f(x)) etc.
+
+    >>> list(iterate(lambda x: x + 1, 1, 5))
+    [1, 2, 3, 4, 5]
+    >>> list(take(5, iterate(lambda x: x + 1, 1)))
+    [1, 2, 3, 4, 5]
+    """
     r = repeat(None) if times is None else range(times)
     for _ in r:
         yield x
