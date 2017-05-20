@@ -454,28 +454,72 @@ def counter(iterable: Iterable[T],
 
 def uniq(iterable: Iterable[T],
          key: Callable[[T], U]=identity,
-         adjacent: bool=True
-         ) -> Iterator[T]:
+         first: bool=True
+         ) -> Iterator[Tuple[int, T]]:
     """
     Similar to unix uniq command, selects unique elements from an iterator.
+
+    >>> list(uniq([1, 1, 2, 2, 2, 3]))
+    [(2, 1), (3, 2), (1, 3)]
+
+    >>> list(uniq('aaabbc'))
+    [(3, 'a'), (2, 'b'), (1, 'c')]
+
+    >>> list(uniq('AaabBc', key=lambda c: c.lower()))
+    [(3, 'A'), (2, 'b'), (1, 'c')]
+
+    >>> list(uniq('AaabBc', key=lambda c: c.lower(), first=False))
+    [(3, 'a'), (2, 'B'), (1, 'c')]
     """
 
-    if adjacent:
-        last_key = _SENTINEL
-        for v in iterable:
-            k = key(v)
-            if k == last_key:
-                continue
-            last_key = k
-            yield v
-    else:
-        seen = set() # type: Set[U]
-        for v in iterable:
-            k = key(v)
-            if k in seen:
-                continue
-            seen.add(k)
-            yield v
+    sentinel   = _SENTINEL # type: Any
+
+    cnt        = 0
+    last_key   = sentinel  # type: U
+    last_value = sentinel  # type: T
+
+    for v in iterable:
+        k = key(v)
+
+        if k == last_key:
+            cnt += 1
+            if not first:
+                last_value = v
+        else:
+            if last_value is not sentinel:
+                yield (cnt, last_value)
+
+            cnt        = 1
+            last_key   = k
+            last_value = v
+
+    if last_value is not sentinel:
+        yield (cnt, last_value)
+
+
+def distinct(iterable: Iterable[T],
+             key: Callable[[T], U]=identity
+             ) -> Iterator[T]:
+    """
+    Similar to unix uniq command, selects unique elements from an iterator.
+
+    >>> list(distinct([1, 1, 2, 1, 2, 2, 1, 2, 3]))
+    [1, 2, 3]
+
+    >>> list(distinct('aaababcab'))
+    ['a', 'b', 'c']
+
+    >>> list(distinct('AaabaABcb', key=lambda c: c.lower()))
+    ['A', 'b', 'c']
+    """
+
+    seen = set() # type: Set[U]
+    for v in iterable:
+        k = key(v)
+        if k in seen:
+            continue
+        seen.add(k)
+        yield v
 
 
 def pairwise(iterable: Iterable[T]) -> Iterator[Tuple[T, T]]:
