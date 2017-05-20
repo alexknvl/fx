@@ -523,7 +523,11 @@ def distinct(iterable: Iterable[T],
 
 
 def pairwise(iterable: Iterable[T]) -> Iterator[Tuple[T, T]]:
-    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    """s -> (s0,s1), (s1,s2), (s2, s3), ...
+
+    >>> list(pairwise([1, 2, 3]))
+    [(1, 2), (2, 3)]
+    """
     a, b = tee(iterable)
     next(b, None)
     return zip(a, b)
@@ -652,6 +656,10 @@ def filter_by_min_freq(iterable: Iterable[T],
 
 
 def indices(iterable: Iterable[T]) -> Dict[T, int]:
+    """
+    >>> sorted(indices('abcda').items())
+    [('a', 0), ('b', 1), ('c', 2), ('d', 3)]
+    """
     result = {} # type: Dict[T, int]
     for i, v in enumerate(iterable):
         result.setdefault(v, i)
@@ -675,6 +683,10 @@ def hash_sample(rate: int, iterable: Iterable[T],
 def reservoir_sample(limit: int,
                      iterable: Iterable[T],
                      rng: Any=None) -> List[T]:
+    """
+    >>> len(reservoir_sample(2, 'abcda'))
+    2
+    """
     sample = []
 
     if rng is None:
