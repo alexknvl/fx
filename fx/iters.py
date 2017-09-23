@@ -603,8 +603,8 @@ def groupby(iterable: Iterable[T],
         keyfunc = keys
 
     if isinstance(semigroup, str):
-        sgk = _semigroups.get_named(semigroup)
         # type: _semigroups.AlgebraK[U, V]
+        sgk = _semigroups.get_named(semigroup)
     else:
         sgk = semigroup
 
@@ -901,6 +901,33 @@ def remap(iterable: Iterable[T], predicate: Callable[[int, T], bool]
         else:
             remapping.append(-1)
     return (result, remapping)
+
+
+def remap1(iterable: Iterable[T], predicate: Callable[[int, T], bool]
+          ) -> Tuple[List[T], List[int], List[int]]:
+    """
+    >>> remap1([3, 2, 3], lambda i, x: x > 0)
+    ([3, 2, 3], [0, 1, 2], [0, 1, 2])
+    >>> remap1([3, 2, 3], lambda i, x: x < 0)
+    ([], [-1, -1, -1], [])
+    >>> remap1([3, 2, 3], lambda i, x: x > 2)
+    ([3, 3], [0, -1, 1], [0, 2])
+    >>> remap1([3, 3, 3], lambda i, x: x > i + 1)
+    ([3, 3], [0, 1, -1], [0, 1])
+    """
+    remapping = []
+    back      = []
+    result    = []
+    j = 0
+    for i, v in enumerate(iterable):
+        if predicate(i, v):
+            result.append(v)
+            back.append(len(remapping))
+            remapping.append(j)
+            j += 1
+        else:
+            remapping.append(-1)
+    return (result, remapping, back)
 
 
 if __name__ == "__main__":
