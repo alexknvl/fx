@@ -92,6 +92,23 @@ Used for lock-step iteration over several iterables at a time.
 """
 
 
+def unzip(it: Iterable[Tuple[Any, ...]], fillvalue=None) -> Tuple[List[Any], ...]:
+    """
+    >>> unzip([(1, 2), (3,), (4, 5, 6)])
+    ([1, 3, 4], [2, None, 5], [None, None, 6])
+    """
+    r = []
+    for i, el in enumerate(it):
+        for j, x in enumerate(el):
+            if j >= len(r):
+                r.append([fillvalue] * i)
+            r[j].append(x)
+        for j in range(len(el), len(r)):
+            r[j].append(fillvalue)
+    return tuple(r)
+
+
+
 zip_longest = _itertools.zip_longest
 """
 Make an iterator that aggregates elements from each of the iterables.
